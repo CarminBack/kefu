@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>客服工作台</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #f4f6f8; 
+            overflow: hidden; 
+            height: 100vh; 
+            height: 100dvh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        /* === 登录界面 === */
+        #login-screen { 
+            position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: #ffffff; text-align: center; padding: 20px; 
+        }
+        .logo-icon { 
+            width: 80px; height: 80px; background: #333; border-radius: 20px; color: white;
+            display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 20px;
+        }
+        #login-screen h2 { margin: 0 0 10px 0; color: #333; }
+        #login-screen p { color: #666; margin-bottom: 30px; font-size: 14px; }
+        #login-screen input { 
+            width: 100%; max-width: 320px; padding: 15px; margin: 10px 0; border: 1px solid #ddd; 
+            border-radius: 12px; font-size: 16px; outline: none; background: #fbfbfb; 
+        }
+        #login-screen input:focus { border-color: #333; }
+        #login-screen button { 
+            width: 100%; max-width: 320px; padding: 15px; background: #333; color: white; 
+            border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; 
+        }
+        
+        /* === 客户列表界面 === */
+        #list-screen { display: none; flex-direction: column; height: 100%; width: 100%; background: #fff; }
+        #list-header { 
+            background: #f8f8f8; color: #000; padding: 12px 15px; padding-top: calc(12px + env(safe-area-inset-top));
+            font-size: 18px; font-weight: bold; text-align: center; border-bottom: 1px solid #ddd; z-index: 10;
+            position: relative;
+        }
+        .logout-btn {
+            position: absolute; right: 14px; top: calc(10px + env(safe-area-inset-top));
+            border: none; background: transparent; color: #2481cc; font-size: 14px; cursor: pointer;
+        }
+        .key-panel {
+            display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid #eef0f3;
+            background: #fff; flex-wrap: wrap;
+        }
+        .key-panel button {
+            border: none; background: #2481cc; color: #fff; border-radius: 8px; padding: 10px 12px;
+            font-size: 14px; cursor: pointer;
+        }
+        .generated-key {
+            flex: 1; min-width: 220px; background: #f5f7fa; border: 1px solid #e2e6ec; border-radius: 8px;
+            padding: 9px 10px; color: #333; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        #user-list { flex: 1; overflow-y: auto; }
+        .user-item { 
+            display: flex; align-items: center; padding: 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
+        }
+        .user-item:active { background: #f9f9f9; }
+        .user-avatar { 
+            width: 50px; height: 50px; background: #2481cc; color: white; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; margin-right: 15px;
+        }
+        .user-info { flex: 1; }
+        .user-phone { font-size: 17px; font-weight: 500; color: #333; margin-bottom: 4px; }
+        .user-time { font-size: 13px; color: #999; }
+        .user-latest { font-size: 14px; color: #555; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58vw; }
+        .user-meta { display: flex; gap: 8px; align-items: center; margin-top: 6px; flex-wrap: wrap; }
+        .unread-badge { background: #d93025; color: #fff; border-radius: 999px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+        .read-status { color: #7a869a; font-size: 12px; }
+        .read-status.read { color: #2481cc; }
+        .user-delete-btn {
+            border: none; background: #fff1f1; color: #d93025; border-radius: 8px;
+            padding: 8px 10px; font-size: 13px; cursor: pointer; margin-left: 10px; flex-shrink: 0;
+        }
+        .user-delete-btn:active { background: #ffdede; }
+        
+        /* === 聊天界面 === */
+        #chat-screen { display: none; flex-direction: column; height: 100%; width: 100%; position: absolute; top:0; left:0; background: #f4f6f8; z-index: 50; }
+        #chat-header { 
+            background: #f8f8f8; color: #000; padding: 12px 15px; padding-top: calc(12px + env(safe-area-inset-top));
+            display: flex; align-items: center; border-bottom: 1px solid #ddd; z-index: 10; 
+        }
+        .back-btn { 
+            margin-right: 15px; display: flex; align-items: center; cursor: pointer; color: #2481cc; font-size: 16px; 
+        }
+        .back-btn svg { width: 20px; height: 20px; fill: #2481cc; margin-right: 4px; }
+        .chat-title { font-size: 17px; font-weight: bold; flex: 1; text-align: center; margin-right: 40px; }
+        .chat-delete-btn {
+            border: none; background: transparent; color: #d93025; font-size: 14px; cursor: pointer;
+            padding: 8px 0 8px 8px;
+        }
+
+        /* 聊天记录区域 */
+        #messages-container { 
+            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; 
+            z-index: 1; background-color: #8faabe; 
+        }
+        .msg-wrapper { display: flex; margin-bottom: 12px; flex-direction: column; }
+        /* 【反转】在工作台，admin自己发的在右侧，客户(user)发的在左侧 */
+        .msg-wrapper.admin { align-items: flex-end; }
+        .msg-wrapper.user { align-items: flex-start; }
+        
+        .msg-bubble { 
+            max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 16px; 
+            line-height: 1.4; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.15); 
+        }
+        /* Admin消息 (右侧/绿色) */
+        .msg-wrapper.admin .msg-bubble { 
+            background: #efffde; color: #000; border-bottom-right-radius: 4px; 
+        }
+        /* User消息 (左侧/白色) */
+        .msg-wrapper.user .msg-bubble { 
+            background: #ffffff; color: #000; border-bottom-left-radius: 4px; 
+        }
+        
+        /* 底部输入框 */
+        #input-area { 
+            background: #f0f2f5; padding: 10px 15px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
+            display: flex; align-items: flex-end; border-top: 1px solid #ddd; z-index: 10; 
+        }
+        #input-area input { 
+            flex: 1; padding: 12px 20px; border: none; border-radius: 20px; font-size: 16px; 
+            outline: none; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+        }
+        #input-area button { 
+            background: #2481cc; color: white; border: none; width: 44px; height: 44px; 
+            border-radius: 50%; margin-left: 10px; display: flex; align-items: center; 
+            justify-content: center; cursor: pointer; flex-shrink: 0;
+        }
+        #input-area button.attach-btn { background: #ffffff; border: 1px solid #d8dde3; margin-left: 0; margin-right: 0; }
+        #input-area button svg { width: 22px; height: 22px; fill: white; margin-left: -2px; }
+        #input-area button.attach-btn svg { fill: #2481cc; margin-left: 0; }
+        #image-input { display: none; }
+        .msg-bubble.image-bubble { padding: 6px; background: transparent; box-shadow: none; }
+        .msg-image { display: block; max-width: min(260px, 70vw); max-height: 320px; border-radius: 12px; object-fit: cover; background: #fff; }
+        
+        .empty-tips { text-align: center; color: #999; margin-top: 50px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <!-- 登录界面 -->
+    <div id="login-screen">
+        <div class="logo-icon">👑</div>
+        <h2>控制台登录</h2>
+        <p>保护客户隐私，请输入管理员凭证</p>
+        <input type="text" id="username-input" placeholder="用户名" autocapitalize="off">
+        <input type="password" id="password-input" placeholder="访问密码">
+        <button onclick="handleLogin()">安全登录</button>
+    </div>
+
+    <!-- 客户列表界面 -->
+    <div id="list-screen">
+        <div id="list-header">所有客户会话 <button class="logout-btn" onclick="logout()">退出</button></div>
+        <div class="key-panel">
+            <button onclick="generateConversationKey()">生成对话秘钥</button>
+            <div class="generated-key" id="generated-key">生成后会显示秘钥和链接</div>
+        </div>
+        <div id="user-list"></div>
+    </div>
+
+    <!-- 具体聊天界面 -->
+    <div id="chat-screen">
+        <div id="chat-header">
+            <div class="back-btn" onclick="backToList()">
+                <svg viewBox="0 0 24 24"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6z"/></svg> 列表
+            </div>
+            <div class="chat-title" id="chat-title">客户</div>
+            <button class="chat-delete-btn" onclick="deleteActiveConversation()">删除</button>
+        </div>
+        <div id="messages-container"></div>
+        <div id="input-area">
+            <input type="file" id="image-input" accept="image/*" onchange="sendImage(this.files[0])">
+            <button onclick="document.getElementById('image-input').click()" class="attach-btn" id="attach-btn">
+                <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 11.5l2.5 3.01L14.5 10l4.5 6H5l3.5-4.5z"/></svg>
+            </button>
+            <input type="text" id="msg-input" placeholder="回复客户..." onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let activeUser = null;
+        let usersData = [];
+        
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/support-ws/`;
+
+        // 检查本地登录态
+        window.onload = async () => {
+            if (await checkLogin()) {
+                showListScreen();
+            }
+        };
+
+        async function checkLogin() {
+            try {
+                const res = await fetch('/support/api/admin/me', { credentials: 'include' });
+                return res.ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        async function handleLogin() {
+            const u = document.getElementById('username-input').value.trim();
+            const p = document.getElementById('password-input').value.trim();
+            try {
+                const res = await fetch('/support/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                if (!res.ok) {
+                    alert('用户名或密码错误，请重试');
+                    return;
+                }
+                showListScreen();
+            } catch (e) {
+                alert('登录失败，请稍后重试');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/support/api/admin/logout', { method: 'POST', credentials: 'include' });
+            } catch (e) {}
+            if (ws) ws.close();
+            ws = null;
+            activeUser = null;
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('list-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'none';
+        }
+
+        function showListScreen() {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('list-screen').style.display = 'flex';
+            document.getElementById('chat-screen').style.display = 'none';
+            activeUser = null;
+            
+            loadUsers();
+            initWebSocket();
+        }
+
+        function backToList() {
+            document.getElementById('chat-screen').style.display = 'none';
+            document.getElementById('list-screen').style.display = 'flex';
+            activeUser = null;
+            loadUsers(); // 刷新列表时间
+        }
+
+        async function generateConversationKey() {
+            const output = document.getElementById('generated-key');
+            output.textContent = '生成中...';
+            try {
+                const res = await fetch('/support/api/admin/conversation-key', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    logout();
+                    return;
+                }
+                if (!res.ok) throw new Error('generate failed');
+                const data = await res.json();
+                const text = `秘钥：${data.secret}  链接：${data.url}`;
+                output.textContent = text;
+                if (navigator.clipboard) {
+                    await navigator.clipboard.writeText(data.url);
+                    output.textContent = `${text}（链接已复制）`;
+                }
+            } catch (e) {
+                output.textContent = '生成失败，请稍后重试';
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/support/api/admin/users', { credentials: 'include' });
+                if (res.status === 401) {
+                    logout();
+                    return;
+                }
+                usersData = await res.json();
+                renderUserList();
+            } catch (e) {
+                console.error("无法加载用户列表", e);
+            }
+        }
+
+        function renderUserList() {
+            const listDiv = document.getElementById('user-list');
+            listDiv.innerHTML = '';
+            
+            if (usersData.length === 0) {
+                listDiv.innerHTML = '<div class="empty-tips">暂无访客咨询</div>';
+                return;
+            }
+
+            usersData.forEach(u => {
+                const div = document.createElement('div');
+                div.className = 'user-item';
+                div.onclick = () => openChat(u.email);
+                
+                // 格式化时间
+                const date = new Date(u.last_active);
+                const timeStr = date.getMonth()+1 + '/' + date.getDate() + ' ' + 
+                                String(date.getHours()).padStart(2, '0') + ':' + 
+                                String(date.getMinutes()).padStart(2, '0');
+                const latestText = messagePreview(u.latest_content, u.latest_sender);
+                const unreadCount = Number(u.unread_count || 0);
+                const readText = u.customer_read === true ? '客户已读' : (u.customer_read === false ? '客户未读' : '暂无客服回复');
+                const readClass = u.customer_read === true ? 'read' : '';
+
+                div.innerHTML = `
+                    <div class="user-avatar">${u.email.slice(0, 2).toUpperCase()}</div>
+                    <div class="user-info">
+                        <div class="user-phone">${u.email}</div>
+                        <div class="user-latest">${escapeHtml(latestText)}</div>
+                        <div class="user-meta">
+                            <span class="user-time">最近活动: ${timeStr}</span>
+                            ${unreadCount > 0 ? `<span class="unread-badge">${unreadCount} 未读</span>` : ''}
+                            <span class="read-status ${readClass}">${readText}</span>
+                        </div>
+                    </div>
+                    <button class="user-delete-btn" data-email="${u.email}">删除</button>
+                `;
+                div.querySelector('.user-delete-btn').onclick = (event) => {
+                    event.stopPropagation();
+                    deleteConversation(u.email);
+                };
+                listDiv.appendChild(div);
+            });
+        }
+
+        function messagePreview(content, sender) {
+            const parsed = parseMessageContent(content);
+            const prefix = sender === 'admin' ? '客服: ' : '客户: ';
+            if (parsed.type === 'image') return `${prefix}[图片]`;
+            return `${prefix}${parsed.text || ''}`;
+        }
+
+        async function deleteConversation(email) {
+            if (!email) return;
+            const ok = confirm(`确定删除 ${email} 的全部聊天记录吗？此操作不可恢复。`);
+            if (!ok) return;
+
+            try {
+                const res = await fetch(`/support/api/admin/conversation?email=${encodeURIComponent(email)}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                if (res.status === 401) {
+                    logout();
+                    return;
+                }
+                if (!res.ok) throw new Error('delete failed');
+
+                usersData = usersData.filter(u => u.email !== email);
+                if (activeUser === email) {
+                    activeUser = null;
+                    document.getElementById('messages-container').innerHTML = '';
+                    backToList();
+                } else {
+                    renderUserList();
+                }
+            } catch (e) {
+                alert('删除失败，请稍后重试');
+            }
+        }
+
+        function deleteActiveConversation() {
+            if (activeUser) deleteConversation(activeUser);
+        }
+
+        async function openChat(email) {
+            activeUser = email;
+            document.getElementById('list-screen').style.display = 'none';
+            document.getElementById('chat-screen').style.display = 'flex';
+            document.getElementById('chat-title').textContent = email;
+            
+            document.getElementById('messages-container').innerHTML = ''; // 清空
+            
+            try {
+                const res = await fetch(`/support/api/admin/history?email=${encodeURIComponent(email)}`, { credentials: 'include' });
+                if (res.status === 401) {
+                    logout();
+                    return;
+                }
+                const history = await res.json();
+                history.forEach(msg => {
+                    renderMessage(msg.content, msg.sender, false);
+                });
+                const current = usersData.find(u => u.email === email);
+                if (current) current.unread_count = 0;
+                fetch(`/support/api/admin/conversation/read?email=${encodeURIComponent(email)}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                }).catch(() => {});
+                scrollToBottom();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function initWebSocket() {
+            if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ type: 'auth', role: 'admin' }));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'auth_error') {
+                    logout();
+                    return;
+                }
+                if (data.type === 'message') {
+                    // 更新列表数据
+                    let exist = usersData.find(u => u.email === data.email);
+                    if (exist) {
+                        exist.last_active = data.timestamp;
+                        exist.latest_content = data.content;
+                        exist.latest_sender = data.sender;
+                        if (data.sender === 'user' && activeUser !== data.email) {
+                            exist.unread_count = Number(exist.unread_count || 0) + 1;
+                        }
+                        if (data.sender === 'admin') {
+                            exist.customer_read = false;
+                        }
+                        // 置顶
+                        usersData = usersData.filter(u => u.email !== data.email);
+                        usersData.unshift(exist);
+                    } else {
+                        usersData.unshift({
+                            email: data.email,
+                            last_active: data.timestamp,
+                            latest_content: data.content,
+                            latest_sender: data.sender,
+                            unread_count: data.sender === 'user' ? 1 : 0,
+                            customer_read: data.sender === 'admin' ? false : null
+                        });
+                    }
+                    
+                    // 如果在列表页，立刻刷新
+                    if (!activeUser) renderUserList();
+                    
+                    // 如果正在跟此人聊天，渲染消息
+                    if (activeUser === data.email) {
+                        renderMessage(data.content, data.sender, true);
+                        if (data.sender === 'user') {
+                            const current = usersData.find(u => u.email === data.email);
+                            if (current) current.unread_count = 0;
+                            fetch(`/support/api/admin/conversation/read?email=${encodeURIComponent(data.email)}`, {
+                                method: 'POST',
+                                credentials: 'include'
+                            }).catch(() => {});
+                        }
+                    }
+                } else if (data.type === 'customer_read') {
+                    const current = usersData.find(u => u.email === data.email);
+                    if (current) {
+                        current.customer_read = true;
+                        if (!activeUser) renderUserList();
+                    }
+                }
+            };
+            
+            ws.onclose = () => {
+                setTimeout(initWebSocket, 3000);
+            };
+        }
+
+        // 心跳包保活
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ping' }));
+            }
+        }, 15000);
+
+        function renderMessage(content, sender, autoScroll) {
+            const container = document.getElementById('messages-container');
+            const wrapper = document.createElement('div');
+            // 注意：因为是 admin 视角，如果消息来自 'admin' (即自己)，显示在右侧。来自 'user' 显示在左侧。
+            wrapper.className = `msg-wrapper ${sender}`; 
+            
+            const bubble = document.createElement('div');
+            bubble.className = 'msg-bubble';
+            const parsed = parseMessageContent(content);
+            if (parsed.type === 'image') {
+                bubble.classList.add('image-bubble');
+                const link = document.createElement('a');
+                link.href = parsed.url;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                const img = document.createElement('img');
+                img.className = 'msg-image';
+                img.src = parsed.url;
+                img.alt = parsed.name || '图片';
+                img.onload = scrollToBottom;
+                link.appendChild(img);
+                bubble.appendChild(link);
+            } else {
+                bubble.innerHTML = escapeHtml(parsed.text).replace(/\n/g, "<br>");
+            }
+            
+            wrapper.appendChild(bubble);
+            container.appendChild(wrapper);
+            
+            if (autoScroll) scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('messages-container');
+            setTimeout(() => {
+                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+            }, 50);
+        }
+
+        function parseMessageContent(content) {
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed && parsed.type === 'image' && typeof parsed.url === 'string') return parsed;
+            } catch (e) {}
+            return { type: 'text', text: String(content || '') };
+        }
+
+        function escapeHtml(text) {
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function sendMessage() {
+            if (!activeUser) return;
+            const input = document.getElementById('msg-input');
+            const text = input.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+            ws.send(JSON.stringify({
+                type: 'message',
+                targetEmail: activeUser,  // 告诉服务器这条消息发给谁
+                content: text
+            }));
+            
+            input.value = '';
+            input.focus();
+        }
+
+        async function sendImage(file) {
+            const fileInput = document.getElementById('image-input');
+            if (!activeUser || !file) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert('网络连接不稳定，请等待重连...');
+                fileInput.value = '';
+                return;
+            }
+            if (!file.type.startsWith('image/')) {
+                alert('请选择图片文件');
+                fileInput.value = '';
+                return;
+            }
+            if (file.size > 8 * 1024 * 1024) {
+                alert('图片不能超过 8MB');
+                fileInput.value = '';
+                return;
+            }
+
+            const attachBtn = document.getElementById('attach-btn');
+            attachBtn.disabled = true;
+            try {
+                const res = await fetch('/support/api/admin/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': file.type,
+                        'X-File-Name': encodeURIComponent(file.name || 'image')
+                    },
+                    credentials: 'include',
+                    body: file
+                });
+                if (!res.ok) throw new Error('upload failed');
+                const imageMessage = await res.json();
+                ws.send(JSON.stringify({
+                    type: 'message',
+                    targetEmail: activeUser,
+                    content: JSON.stringify(imageMessage)
+                }));
+            } catch (e) {
+                alert('图片发送失败，请稍后重试');
+            } finally {
+                attachBtn.disabled = false;
+                fileInput.value = '';
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>

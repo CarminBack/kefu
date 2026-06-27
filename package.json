@@ -1,0 +1,19 @@
+{
+  "name": "chat-support",
+  "version": "1.0.0",
+  "description": "Web and Telegram customer support chat system.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "sqlite3": "^6.0.1",
+    "ws": "^8.20.1"
+  }
+}

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- User-scalable=no is key for iOS -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>专属客服</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            /* 现代移动端的视口高度，解决工具栏遮挡 */
+            height: 100dvh; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f6f8;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+        }
+        
+        /* === 秘钥界面 === */
+        #key-screen {
+            position: absolute; z-index: 100; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: #ffffff; text-align: center; padding: 20px;
+        }
+        .logo-icon {
+            width: 80px; height: 80px; background: #2481cc; border-radius: 50%; color: white;
+            display: flex; align-items: center; justify-content: center; font-size: 40px; margin-bottom: 20px;
+        }
+        #key-screen h2 { margin: 0 0 10px 0; color: #333; }
+        #key-screen p { color: #666; margin-bottom: 30px; font-size: 14px; }
+        #key-screen input {
+            width: 100%; max-width: 320px; padding: 15px; margin: 10px 0; border: 1px solid #ddd;
+            border-radius: 12px; font-size: 16px; text-align: center; outline: none; background: #fbfbfb;
+            text-transform: uppercase;
+        }
+        #key-screen input:focus { border-color: #2481cc; }
+        #key-screen button {
+            width: 100%; max-width: 320px; padding: 15px; background: #2481cc; color: white;
+            border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px;
+        }
+        #key-screen button:active { opacity: 0.8; }
+
+        /* === 主聊天界面 === */
+        #chat-screen {
+            display: none; 
+            flex-direction: column;
+            width: 100%; 
+            flex: 1; /* 分配所有剩余空间 */
+            height: 100%;
+        }
+        
+        /* 类似 Telegram 的头部 */
+        #header { 
+            background: #2481cc; color: white; padding: 12px 15px; 
+            /* 安全区域适配刘海屏 */
+            padding-top: max(12px, env(safe-area-inset-top));
+            display: flex; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); z-index: 10;
+            flex-shrink: 0; 
+        }
+        .header-avatar { 
+            width: 42px; height: 42px; background: #fff; border-radius: 50%; display: flex; 
+            align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; color: #2481cc; font-weight: bold;
+        }
+        .header-info { display: flex; flex-direction: column; }
+        .header-title { font-size: 17px; font-weight: 600; }
+        .header-status { font-size: 13px; color: #d1e6f7; margin-top: 2px; }
+
+        /* 聊天记录区域 (Telegram背景色) */
+        #messages-container { 
+            flex: 1; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; /* 顺滑滚动 */
+            padding: 15px; 
+            display: flex; 
+            flex-direction: column; 
+            background-color: #8faabe; 
+        }
+        
+        .msg-wrapper { display: flex; margin-bottom: 12px; flex-direction: column; }
+        .msg-wrapper.user { align-items: flex-end; }
+        .msg-wrapper.admin { align-items: flex-start; }
+        
+        /* 气泡样式 */
+        .msg-bubble { 
+            max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 16px; 
+            line-height: 1.4; word-wrap: break-word; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.15); 
+        }
+        .msg-wrapper.user .msg-bubble { background: #efffde; color: #000; border-bottom-right-radius: 4px; }
+        .msg-wrapper.admin .msg-bubble { background: #ffffff; color: #000; border-bottom-left-radius: 4px; }
+        
+        /* 底部输入框 */
+        #input-area { 
+            background: #f0f2f5; 
+            padding: 10px 15px; 
+            padding-bottom: max(10px, env(safe-area-inset-bottom)); 
+            display: flex; 
+            align-items: center; 
+            border-top: 1px solid #ddd; 
+            z-index: 10;
+            flex-shrink: 0;
+            /* transform: translate3d(0,0,0); 会导致iOS定位BUG，所以我们用纯 Flex */
+        }
+        #input-area input { 
+            flex: 1; padding: 12px 20px; border: none; border-radius: 20px; font-size: 16px; 
+            outline: none; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+            /* iOS中需要重置默认样式 */
+            appearance: none; -webkit-appearance: none;
+        }
+        #input-area input:focus { box-shadow: none; }
+        #input-area button { 
+            background: #2481cc; color: white; border: none; width: 44px; height: 44px; 
+            border-radius: 50%; margin-left: 10px; display: flex; align-items: center; 
+            justify-content: center; cursor: pointer; transition: transform 0.1s; flex-shrink: 0;
+        }
+        #input-area button.attach-btn { background: #ffffff; color: #2481cc; border: 1px solid #d8dde3; margin-left: 0; margin-right: 0; }
+        #input-area button:active { transform: scale(0.9); }
+        #input-area button svg { width: 22px; height: 22px; fill: white; margin-left: -2px; }
+        #input-area button.attach-btn svg { fill: #2481cc; margin-left: 0; }
+        #image-input { display: none; }
+        .msg-bubble.image-bubble { padding: 6px; background: transparent; box-shadow: none; }
+        .msg-image { display: block; max-width: min(260px, 70vw); max-height: 320px; border-radius: 12px; object-fit: cover; background: #fff; }
+    </style>
+</head>
+<body>
+    <div id="key-screen">
+        <div class="logo-icon">🎧</div>
+        <h2>专属客服系统</h2>
+        <p>请输入客服提供的对话秘钥</p>
+        <input type="text" id="secret-input" placeholder="对话秘钥" autocomplete="off" autocapitalize="characters">
+        <button onclick="verifySecret()">进入对话</button>
+    </div>
+
+    <!-- 聊天界面 -->
+    <div id="chat-screen">
+        <div id="header">
+            <div class="header-avatar">服</div>
+            <div class="header-info">
+                <div class="header-title">专属客服中心</div>
+                <div class="header-status" id="header-status">连接中...</div>
+            </div>
+        </div>
+
+        <div id="messages-container"></div>
+
+        <div id="input-area">
+            <input type="file" id="image-input" accept="image/*" onchange="sendImage(this.files[0])">
+            <button onclick="document.getElementById('image-input').click()" class="attach-btn" id="attach-btn">
+                <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 11.5l2.5 3.01L14.5 10l4.5 6H5l3.5-4.5z"/></svg>
+            </button>
+            <!-- 使用 name 代替 autocomplete 防止 safari 不认账 -->
+            <input type="text" 
+                   id="msg-input" 
+                   placeholder="消息..." 
+                   onkeypress="handleEnter(event)" 
+                   name="chat-message"
+                   autocomplete="off" 
+                   autocorrect="off" 
+                   autocapitalize="off" 
+                   spellcheck="false">
+            <button onclick="sendMessage()" id="send-btn">
+                <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let visitorId = localStorage.getItem("support_conversation_id") || "";
+        let conversationSecret = localStorage.getItem("support_conversation_secret") || "";
+        let isReconnecting = false;
+        
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}`;
+
+        // 处理 iOS 下键盘弹起导致页面被推走的问题
+        const chatScreen = document.getElementById("chat-screen");
+        const msgInput = document.getElementById("msg-input");
+        const msgContainer = document.getElementById("messages-container");
+
+        msgInput.addEventListener("focus", () => {
+            setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight);
+                scrollToBottom();
+            }, 300);
+        });
+
+        window.onload = async () => {
+            const urlKey = new URLSearchParams(window.location.search).get("key");
+            if (urlKey) {
+                document.getElementById("secret-input").value = urlKey;
+                await verifySecret(urlKey);
+                return;
+            }
+            if (conversationSecret && visitorId) {
+                await verifySecret(conversationSecret, true);
+            }
+        };
+
+        async function verifySecret(secretOverride, silent) {
+            const secret = (secretOverride || document.getElementById("secret-input").value).trim();
+            if (!secret) {
+                if (!silent) alert("请输入对话秘钥");
+                return;
+            }
+            try {
+                const res = await fetch("/api/conversation-key/verify", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ secret })
+                });
+                if (!res.ok) {
+                    localStorage.removeItem("support_conversation_secret");
+                    localStorage.removeItem("support_conversation_id");
+                    if (!silent) alert("对话秘钥无效，请联系客服");
+                    return;
+                }
+                const data = await res.json();
+                conversationSecret = data.secret;
+                visitorId = data.conversation_id;
+                localStorage.setItem("support_conversation_secret", conversationSecret);
+                localStorage.setItem("support_conversation_id", visitorId);
+                enterChatView();
+            } catch (e) {
+                if (!silent) alert("验证失败，请稍后重试");
+            }
+        }
+
+        function enterChatView() {
+            document.getElementById("key-screen").style.display = "none";
+            document.getElementById("chat-screen").style.display = "flex";
+            localStorage.removeItem("support_email");
+            localStorage.removeItem("support_visitor_id");
+            initChat();
+        }
+
+        async function initChat() {
+            await loadHistory();
+            initWebSocket();
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(`/api/history?email=${encodeURIComponent(visitorId)}&key=${encodeURIComponent(conversationSecret)}`);
+                if (res.status === 401) {
+                    localStorage.removeItem("support_conversation_secret");
+                    localStorage.removeItem("support_conversation_id");
+                    document.getElementById("chat-screen").style.display = "none";
+                    document.getElementById("key-screen").style.display = "flex";
+                    return;
+                }
+                const history = await res.json();
+                
+                msgContainer.innerHTML = "";
+                history.forEach(msg => {
+                    renderMessage(msg.content, msg.sender, false);
+                });
+                scrollToBottom();
+                
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: "read_receipt" }));
+                }
+            } catch (e) {
+                console.error("加载消息失败", e);
+            }
+        }
+
+        function initWebSocket() {
+            if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) return;
+
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+                isReconnecting = false;
+                document.getElementById("header-status").textContent = "已连接";
+                ws.send(JSON.stringify({ type: "auth", role: "user", secret: conversationSecret }));
+                ws.send(JSON.stringify({ type: "read_receipt" }));
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === "auth_error") {
+                    alert(data.message || "对话秘钥无效");
+                    localStorage.removeItem("support_conversation_secret");
+                    localStorage.removeItem("support_conversation_id");
+                    window.location.reload();
+                    return;
+                }
+                if (data.type === "auth_ok") {
+                    visitorId = data.email;
+                    localStorage.setItem("support_conversation_id", visitorId);
+                    return;
+                }
+                if (data.type === "message" && data.email === visitorId) {
+                    renderMessage(data.content, data.sender, true);
+                    if (document.visibilityState === "visible") {
+                        ws.send(JSON.stringify({ type: "read_receipt" }));
+                    }
+                }
+            };
+            
+            ws.onclose = () => {
+                document.getElementById("header-status").textContent = "断线，尝试恢复中...";
+                if (!isReconnecting) {
+                    isReconnecting = true;
+                    setTimeout(() => {
+                        initChat();
+                    }, 3000);
+                }
+            };
+        }
+
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible" && ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "read_receipt" }));
+            }
+        });
+
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "ping" })); 
+            }
+        }, 15000);
+
+        function renderMessage(content, sender, autoScroll) {
+            const wrapper = document.createElement("div");
+            wrapper.className = `msg-wrapper ${sender}`;
+            
+            const bubble = document.createElement("div");
+            bubble.className = "msg-bubble";
+            const parsed = parseMessageContent(content);
+            if (parsed.type === "image") {
+                bubble.classList.add("image-bubble");
+                const link = document.createElement("a");
+                link.href = parsed.url;
+                link.target = "_blank";
+                link.rel = "noopener";
+                const img = document.createElement("img");
+                img.className = "msg-image";
+                img.src = parsed.url;
+                img.alt = parsed.name || "图片";
+                img.onload = scrollToBottom;
+                link.appendChild(img);
+                bubble.appendChild(link);
+            } else {
+                bubble.innerHTML = escapeHtml(parsed.text).replace(/\n/g, "<br>");
+            }
+            
+            wrapper.appendChild(bubble);
+            msgContainer.appendChild(wrapper);
+            
+            if (autoScroll) {
+                 scrollToBottom();
+            }
+        }
+
+        function scrollToBottom() {
+            setTimeout(() => {
+                msgContainer.scrollTop = msgContainer.scrollHeight;
+            }, 50);
+        }
+
+        function parseMessageContent(content) {
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed && parsed.type === "image" && typeof parsed.url === "string") return parsed;
+            } catch (e) {}
+            return { type: "text", text: String(content || "") };
+        }
+
+        function escapeHtml(text) {
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
+        function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text) return;
+            
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("网络连接不稳定，请等待重连...");
+                return;
+            }
+
+            ws.send(JSON.stringify({
+                type: "message",
+                content: text
+            }));
+            
+            msgInput.value = "";
+            msgInput.focus();
+        }
+
+        async function sendImage(file) {
+            const input = document.getElementById("image-input");
+            if (!file) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("网络连接不稳定，请等待重连...");
+                input.value = "";
+                return;
+            }
+            if (!file.type.startsWith("image/")) {
+                alert("请选择图片文件");
+                input.value = "";
+                return;
+            }
+            if (file.size > 8 * 1024 * 1024) {
+                alert("图片不能超过 8MB");
+                input.value = "";
+                return;
+            }
+
+            const attachBtn = document.getElementById("attach-btn");
+            attachBtn.disabled = true;
+            try {
+                const res = await fetch("/api/upload", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": file.type,
+                        "X-File-Name": encodeURIComponent(file.name || "image"),
+                        "X-Conversation-Secret": conversationSecret
+                    },
+                    body: file
+                });
+                if (!res.ok) throw new Error("upload failed");
+                const imageMessage = await res.json();
+                ws.send(JSON.stringify({
+                    type: "message",
+                    content: JSON.stringify(imageMessage)
+                }));
+            } catch (e) {
+                alert("图片发送失败，请稍后重试");
+            } finally {
+                attachBtn.disabled = false;
+                input.value = "";
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
