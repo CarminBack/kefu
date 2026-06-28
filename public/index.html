@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>专属客服</title>
     <style>
-        :root { --app-height: 100dvh; }
+        :root {
+            --app-height: 100dvh;
+            --keyboard-height: 0px;
+        }
         *, *::before, *::after { box-sizing: border-box; }
         html, body {
             margin: 0;
@@ -78,6 +81,7 @@
             overflow-y: auto; 
             -webkit-overflow-scrolling: touch; /* 顺滑滚动 */
             padding: 15px; 
+            padding-bottom: calc(15px + var(--keyboard-height));
             display: flex; 
             flex-direction: column; 
             background-color: #8faabe; 
@@ -107,7 +111,8 @@
             border-top: 1px solid #ddd; 
             z-index: 10;
             flex-shrink: 0;
-            /* transform: translate3d(0,0,0); 会导致iOS定位BUG，所以我们用纯 Flex */
+            transform: translateY(calc(-1 * var(--keyboard-height)));
+            will-change: transform;
         }
         #input-area input { 
             flex: 1; padding: 12px 20px; border: none; border-radius: 20px; font-size: 16px; 
@@ -185,11 +190,23 @@
         const chatScreen = document.getElementById("chat-screen");
         const msgInput = document.getElementById("msg-input");
         const msgContainer = document.getElementById("messages-container");
+        let baseViewportHeight = Math.max(window.innerHeight, window.visualViewport ? window.visualViewport.height : 0);
 
         function syncViewportHeight() {
             const viewport = window.visualViewport;
-            const height = viewport ? viewport.height : window.innerHeight;
-            document.documentElement.style.setProperty("--app-height", `${height}px`);
+            const currentHeight = viewport ? viewport.height : window.innerHeight;
+            const inputFocused = document.activeElement === msgInput;
+
+            if (!inputFocused) {
+                baseViewportHeight = Math.max(window.innerHeight, currentHeight);
+            }
+
+            const keyboardHeight = inputFocused && viewport
+                ? Math.max(0, baseViewportHeight - viewport.height - viewport.offsetTop)
+                : 0;
+
+            document.documentElement.style.setProperty("--app-height", `${baseViewportHeight}px`);
+            document.documentElement.style.setProperty("--keyboard-height", `${keyboardHeight}px`);
             if (chatScreen.style.display !== "none") scrollToBottom(0);
         }
 
@@ -202,8 +219,13 @@
         msgInput.addEventListener("focus", () => {
             syncViewportHeight();
             setTimeout(() => {
+                window.scrollTo(0, 0);
                 scrollToBottom();
             }, 300);
+        });
+
+        msgInput.addEventListener("blur", () => {
+            setTimeout(syncViewportHeight, 100);
         });
 
         window.onload = async () => {

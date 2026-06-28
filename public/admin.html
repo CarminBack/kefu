@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>客服工作台</title>
     <style>
-        :root { --app-height: 100dvh; }
+        :root {
+            --app-height: 100dvh;
+            --keyboard-height: 0px;
+        }
         *, *::before, *::after { box-sizing: border-box; }
         body { 
             margin: 0; 
@@ -106,8 +109,8 @@
         }
 
         /* 聊天记录区域 */
-        #messages-container { 
-            flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; 
+        #messages-container {
+            flex: 1; overflow-y: auto; padding: 15px; padding-bottom: calc(15px + var(--keyboard-height)); display: flex; flex-direction: column;
             z-index: 1; background-color: #8faabe; min-height: 0; overscroll-behavior: contain;
         }
         .msg-wrapper { display: flex; margin-bottom: 12px; flex-direction: column; }
@@ -132,6 +135,8 @@
         #input-area { 
             background: #f0f2f5; padding: 10px 15px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); 
             display: flex; align-items: flex-end; border-top: 1px solid #ddd; z-index: 10; 
+            transform: translateY(calc(-1 * var(--keyboard-height)));
+            will-change: transform;
         }
         #input-area input { 
             flex: 1; padding: 12px 20px; border: none; border-radius: 20px; font-size: 16px; 
@@ -205,11 +210,23 @@
         const wsUrl = `${protocol}//${window.location.host}/support-ws/`;
         const chatScreen = document.getElementById('chat-screen');
         const msgInput = document.getElementById('msg-input');
+        let baseViewportHeight = Math.max(window.innerHeight, window.visualViewport ? window.visualViewport.height : 0);
 
         function syncViewportHeight() {
             const viewport = window.visualViewport;
-            const height = viewport ? viewport.height : window.innerHeight;
-            document.documentElement.style.setProperty('--app-height', `${height}px`);
+            const currentHeight = viewport ? viewport.height : window.innerHeight;
+            const inputFocused = document.activeElement === msgInput;
+
+            if (!inputFocused) {
+                baseViewportHeight = Math.max(window.innerHeight, currentHeight);
+            }
+
+            const keyboardHeight = inputFocused && viewport
+                ? Math.max(0, baseViewportHeight - viewport.height - viewport.offsetTop)
+                : 0;
+
+            document.documentElement.style.setProperty('--app-height', `${baseViewportHeight}px`);
+            document.documentElement.style.setProperty('--keyboard-height', `${keyboardHeight}px`);
             if (chatScreen.style.display !== 'none') scrollToBottom(0);
         }
 
@@ -221,7 +238,14 @@
 
         msgInput.addEventListener('focus', () => {
             syncViewportHeight();
-            setTimeout(() => scrollToBottom(), 300);
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+                scrollToBottom();
+            }, 300);
+        });
+
+        msgInput.addEventListener('blur', () => {
+            setTimeout(syncViewportHeight, 100);
         });
 
         // 检查本地登录态
